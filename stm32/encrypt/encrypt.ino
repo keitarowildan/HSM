@@ -20,6 +20,10 @@ void setup() {
 void loop() {
 
   Serial.write("----------------------------AES Encryption/Decryption--------------------\n");
+  // Clearing the arrays
+    memset(plain, 0, sizeof(plain));
+    memset(cipher, 0, sizeof(cipher));
+    memset(plain_again, 0, sizeof(plain_again));
   
   // Prepare data, generate according to AES algorithm
   // Generate key -- bad way for production, just for testing
