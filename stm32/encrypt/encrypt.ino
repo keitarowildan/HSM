@@ -23,28 +23,26 @@ void loop() {
   
   // Prepare data, generate according to AES algorithm
   // Generate key -- bad way for production, just for testing
-  while (Serial.available() == 0);
-  Serial.write("Enter the key (32 characters):\n");
-  for (i = 0; i < sizeof(key); i++) {
-    key[i] = Serial.read();
-    Serial.write((char)key[i]);
-  }
-  Serial.println();
-  Serial.write("Size of key: ");
-  Serial.println(sizeof(key), DEC);
-  Serial.println();
+    Serial.write("Generate key, 256 Bit, 32 Byte\n");
+    
+    for(i=0; i<sizeof(key); i=i+1) {
+        key[i]=(char)(90 - random(25));
+        Serial.write((char)key[i]);
+    }
+    Serial.write("\nsize: ");
+    Serial.print(sizeof(key), DEC);
+    Serial.write("\n\n");
   
   // Generate IV
-  Serial.write("Enter the IV (16 characters):\n");
-  while (Serial.available() == 0);
-  for (i = 0; i < sizeof(iv); i++) {
-    iv_orig[i] = iv[i] = Serial.read();
-    Serial.write((char)iv_orig[i]);
-  }
-  Serial.println();
-  Serial.write("Size of IV: ");
-  Serial.println(sizeof(iv), DEC);
-  Serial.println();
+    Serial.write("Generate IV, 128 Bit, 16 Byte\n");
+    for(i=0; i<sizeof(iv); i=i+1) {
+        iv_orig[i]=key[i]=(char)(122 - random(25));
+        iv[i]=iv_orig[i];
+        Serial.write((char)iv_orig[i]);
+    }
+    Serial.write("\nsize: ");
+    Serial.print(sizeof(iv), DEC);
+    Serial.write("\n\n");
   
   // Input plaintext
   Serial.write("Enter plaintext (up to 128 characters):\n");
