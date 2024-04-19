@@ -1,62 +1,72 @@
+#include "src/lib_mbedtls/md.h"
 #include "src/lib_mbedtls/aes.h"
 
-// Predefined key and initialization vector (IV)
-unsigned char key[32]; // 32 bytes for AES-256
-unsigned char iv[16];  // 16 bytes for AES block size
+unsigned char         key[32] = {
+  0x51, 0x51, 0x46, 0x52, 0x4B, 0x56, 0x4E, 0x4F,
+  0x44, 0x49, 0x4A, 0x47, 0x51, 0x52, 0x49, 0x42,
+  0x59, 0x4F, 0x47, 0x52, 0x56, 0x49, 0x50, 0x4C,
+  0x5A, 0x4A, 0x4E, 0x48, 0x46, 0x53, 0x4C, 0x00
+};
 
-// Buffer for ciphertext and decrypted text
-unsigned char ciphertext[128];
-unsigned char decryptedtext[128];
+unsigned char     iv_orig[16] = {
+  'n', 't', 'u', 'z', 'e', 'r', 'y', 'k',
+  'd', 'h', 'k', 'g', 'j', 'u', 'w', 'b'
+}; // iv is changed during encryption, so we need to keep a copy of the original
 
-// AES context
-mbedtls_aes_context aes;
+unsigned char          iv[16] = {
+  'n', 't', 'u', 'z', 'e', 'r', 'y', 'k',
+  'd', 'h', 'k', 'g', 'j', 'u', 'w', 'b'
+};
+
+unsigned char       plain[128];
+unsigned char plain_again[128];
+unsigned char      cipher[128];
+
+int i;
 
 void setup() {
   Serial.begin(9600);
-  while (!Serial) {
-    ; // Wait for serial port to connect - needed for native USB port only
-  }
+  randomSeed(analogRead(0));
 
-  // Set key and IV directly, avoiding the null terminator issue
-  memcpy(key, "12345678901234567890123456789012", 32);
-  memcpy(iv, "1234567890123456", 16);
-
-  Serial.println("Enter ciphertext to decrypt:");
+  Serial.println("Here we go....mbedtls on Arduino Primo....");
 }
 
 void loop() {
-  if (readCiphertext()) {
-    mbedtls_aes_init(&aes);
-    mbedtls_aes_setkey_dec(&aes, key, 256); // Setup decryption key for AES-256
 
-    // Decrypt the ciphertext
-    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, sizeof(ciphertext), iv, ciphertext, decryptedtext);
+  Serial.write("----------------------------AES Decryption--------------------\n");
 
-    // Output the decrypted text
-    Serial.println("Decrypted text:");
-    Serial.println((char*)decryptedtext);
+  // Clearing the arrays
+  memset(plain_again, 0, sizeof(plain_again));
 
-    // Clean up AES context
-    mbedtls_aes_free(&aes);
-
-    Serial.println("Enter ciphertext to decrypt:");
+  // Input ciphertext
+  Serial.write("Enter ciphertext (hex):\n");
+  while (Serial.available() == 0);
+  for (i = 0; i < sizeof(cipher); i++) {
+    cipher[i] = Serial.read();
   }
-}
-
-bool readCiphertext() {
-  static String inputHex = "";
-  while (Serial.available() > 0) {
-    char ch = Serial.read();
-    if (ch == '\n') {
-      // Convert hex string to byte array
-      int len = inputHex.length();
-      for (int i = 0; i < len; i += 2) {
-        ciphertext[i / 2] = strtol(inputHex.substring(i, i + 2).c_str(), NULL, 16);
-      }
-      return true;
-    } else {
-      inputHex += ch;
-    }
+  Serial.print("Ciphertext entered (hex):\n");
+  for (i = 0; i < sizeof(cipher); i++) {
+    Serial.print((char)cipher[i], HEX);
   }
-  return false;
+  Serial.write("\nSize of ciphertext: ");
+  Serial.println(sizeof(cipher), DEC);
+  Serial.println();
+  
+  // Begin decryption
+  mbedtls_aes_context aes_decrypt;
+  mbedtls_aes_setkey_dec(&aes_decrypt, key, sizeof(key) * 8);
+  mbedtls_aes_crypt_cbc(&aes_decrypt, MBEDTLS_AES_DECRYPT, sizeof(cipher), iv_orig, cipher, plain_again);
+
+  Serial.write("Plaintext:\n");
+  for (i = 0; i < sizeof(plain_again); i++) {
+    Serial.write((char)plain_again[i]);
+  }
+  Serial.write("\nSize of plaintext: ");
+  Serial.println(sizeof(plain_again), DEC);
+  Serial.println();
+
+  // Clear plain_again array
+  memset(plain_again, 0, sizeof(plain_again));
+
+  Serial.write("------------------------------------------------------------\n");
 }
