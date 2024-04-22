@@ -4,7 +4,9 @@
 
 AESLib aesLib;
 
-const char* plaintext = "cek halo kontol 1234";
+const int MAX_STRING_LENGTH = 128;
+char plaintext[MAX_STRING_LENGTH];
+
 int loopcount = 0;
 
 char cleartext[256] = {0};
@@ -115,6 +117,22 @@ void aes_init() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(10000); // Set a timeout of 10 seconds for serial input
+  // Prompt user to enter plaintext
+  Serial.println("Enter the plaintext:");
+
+  // Wait for user input from serial monitor
+  while (Serial.available() == 0) {
+    // Wait until data is available
+  }
+
+  // Read input string from serial monitor
+  int bytesRead = Serial.readBytesUntil('\n', plaintext, MAX_STRING_LENGTH - 1);
+  plaintext[bytesRead] = '\0'; // Null-terminate the string
+
+  // Print the entered plaintext
+  Serial.print("Entered plaintext: ");
+  Serial.println(plaintext);
   aes_init();
 }
 
@@ -127,8 +145,8 @@ void loop() {
   Serial.println("");
 
   //sprintf(cleartext, "START; %i \n", loopcount);
-  sprintf(cleartext, "cek halo kontol 1234");
-
+//  sprintf(cleartext, "cek halo kontol 1234");
+  
   aesLib.set_paddingmode(paddingMode::CMS);
 
   // Encrypt Data
