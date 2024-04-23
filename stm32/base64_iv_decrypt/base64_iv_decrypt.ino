@@ -1,4 +1,5 @@
 #include <AESLib.h>
+#include <stm32f4xx_hal.h>
 
 AESLib aesLib;
 
@@ -11,10 +12,11 @@ byte aes_iv[N_BLOCK] = { 0 }; // All-zero IV (N_BLOCK should be 16 for AES-128)
 void setup() {
   Serial.begin(9600);
   while (!Serial) continue; // Wait for Serial to be ready
-  Serial.println("Enter Base64 encrypted text:");
 }
 
 void loop() {
+  memset(ciphertext, 0, sizeof(ciphertext)); // Reset the ciphertext buffer
+
   if (Serial.available() > 0) {
     int bytesRead = Serial.readBytesUntil('\n', ciphertext, MAX_INPUT_LENGTH - 1);
     ciphertext[bytesRead] = '\0'; // Null-terminate the string
@@ -25,9 +27,9 @@ void loop() {
     char decrypted[MAX_INPUT_LENGTH] = {0}; // Allocate enough space for decrypted message
     aesLib.decrypt64(ciphertext, msgLen, (byte*)decrypted, aes_key, sizeof(aes_key), aes_iv);
     
-    Serial.print("Decrypted Text: ");
+    Serial.print("\nDecrypted Text: ");
     Serial.println(decrypted);
-
-    while (true); // Stop the loop after decrypting once
+    delay(100);
+    NVIC_SystemReset();
   }
 }

@@ -27,7 +27,5 @@ void loop() {
     
     Serial.print("Encrypted Text (Base64): ");
     Serial.println(encrypted);
-
-    while (true); // Stop the loop after encrypting once
   }
 }
