@@ -75,44 +75,9 @@ void aes_init() {
   String decrypted = decrypt_impl((char*)encrypted1.c_str(), dec_iv_B); // aes_iv fails here, incorrectly decoded...
   Serial.print("Cleartext: ");
   Serial.println(decrypted);
-  Serial.println("In first iteration this should work (using untouched dec_iv_B) ^^^");
+  Serial.println("\nIn first iteration this should work (using untouched dec_iv_B) ^^^");
 
-  ///
   
-  Serial.println("\n2) AES init... paddingMode::CMS");
-  aesLib.set_paddingmode(paddingMode::CMS);  
-
-  Serial.println("Encrypting plaintext using null-IV with CMS padding");
-  byte enc_iv_X[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  String encrypted2 = encrypt_impl((char*)plaintext, enc_iv_X );
-  Serial.print("Encrypted (2): "); Serial.println(encrypted2);
-  print_key_iv();
-
-  aesLib.set_paddingmode(paddingMode::CMS);
-
-  Serial.println("Decrypting plaintext using null-IV CMS padding");
-  byte enc_iv_Y[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  decrypted = decrypt_impl((char*)encrypted2.c_str(), enc_iv_Y);
-  Serial.print("Cleartext: ");
-  Serial.println(decrypted);
-  
-  ///
-
-  Serial.println("\n3) AES init... from Server, paddingMode::CMS");
-  aesLib.set_paddingmode(paddingMode::CMS);  
-
-  // Decode IV from server to aes_iv instead of directly using zeros...
-  int ivLen = base64_decode((char*)server_b64iv.c_str(), (char *)aes_iv, server_b64iv.length());
-  Serial.println("Server IV should be null-IV: ");
-  print_key_iv();
-  Serial.print("Decoded Server IV bytes to aes_iv: "); Serial.println(ivLen);
-
-  Serial.print("B64 Ciphertext: "); Serial.println(server_b64msg);  
-
-  String decrypted_string = decrypt_impl((char*)server_b64msg.c_str(), aes_iv);
-
-  Serial.print("Server message decrypted using server IV and CMS, cleartext: ");
-  Serial.println(decrypted_string);
 }
 
 void setup() {
@@ -129,10 +94,16 @@ void setup() {
   // Read input string from serial monitor
   int bytesRead = Serial.readBytesUntil('\n', plaintext, MAX_STRING_LENGTH - 1);
   plaintext[bytesRead] = '\0'; // Null-terminate the string
+  
+  // Copy plaintext to cleartext
+  strncpy(cleartext, plaintext, sizeof(cleartext) - 1);
+  cleartext[sizeof(cleartext) - 1] = '\0'; // Ensure null-termination
 
   // Print the entered plaintext
   Serial.print("Entered plaintext: ");
   Serial.println(plaintext);
+  Serial.print("Copied to cleartext: ");
+  Serial.println(cleartext);
   aes_init();
 }
 
@@ -143,9 +114,6 @@ void loop() {
   if (loopcount > 5) return; // prevent week-long logs
   
   Serial.println("");
-
-  //sprintf(cleartext, "START; %i \n", loopcount);
-//  sprintf(cleartext, "cek halo kontol 1234");
   
   aesLib.set_paddingmode(paddingMode::CMS);
 
