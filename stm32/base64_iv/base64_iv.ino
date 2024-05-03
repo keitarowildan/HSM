@@ -1,7 +1,8 @@
 #include <Arduino.h>
 #include <stm32f4xx.h>
 #include <AESLib.h>
-
+const int ARRAY_SIZE = 16;
+byte aes_key[ARRAY_SIZE];
 AESLib aesLib;
 const int MAX_STRING_LENGTH = 128;
 char plaintext[MAX_STRING_LENGTH];
@@ -13,7 +14,7 @@ unsigned int menu = 0;
 char cleartext[256] = {0};
 char ciphertext[512];
 
-byte aes_key[] = { 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C };
+//byte aes_key[] = { 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C };
 // AES Encryption Key
 
 // General initialization vector (you must use your own IV's in production for full security!!!)
@@ -52,6 +53,12 @@ String decrypt_impl(char * msg, byte iv[]) {
 
 void setup() {
   Serial.begin(115200);  // Initialize serial communication at 115200 baud rate
+  delay(300);
+  while(!Serial){;}
+    randomSeed(analogRead(0)); // Seed the random number generator
+    Serial.println("cek");
+  randomizeArray(); // Randomize the array
+  printArray(); // Print the randomized array
   printMenu();           // Display the menu options
 }
 
@@ -163,4 +170,33 @@ void clearSerialBuffer() {
   while (Serial.available() > 0) {
     Serial.read();  // Read and discard any leftover characters
   }
+}
+template<typename T>
+void swap(T& a, T& b) {
+    T temp = a;
+    a = b;
+    b = temp;
+}
+
+void randomizeArray() {
+  // Shuffle the array using the Fisher-Yates algorithm
+  for (int i = 0; i < ARRAY_SIZE; ++i) {
+    aes_key[i] = random(256); // Generate a random number between 0 and 255 (0x00 and 0xFF)
+  }
+}
+
+
+void printArray() {
+  Serial.print("byte aes_key[] = { ");
+  for (int i = 0; i < ARRAY_SIZE; ++i) {
+    Serial.print("0x");
+    if (aes_key[i] < 16) {
+      Serial.print("0"); // Print leading zero for single-digit hex numbers
+    }
+    Serial.print(aes_key[i], HEX);
+    if (i < ARRAY_SIZE - 1) {
+      Serial.print(", ");
+    }
+  }
+  Serial.println(" };");
 }
