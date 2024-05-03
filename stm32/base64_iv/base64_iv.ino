@@ -11,7 +11,7 @@ char plaintext[MAX_STRING_LENGTH];
 int loopcount = 0;
 unsigned int menu = 0;
 
-char cleartext[256] = {0};
+char temp_for_decryption[256] = {0};
 char ciphertext[512];
 
 //byte aes_key[] = { 0x2B, 0x7E, 0x15, 0x16, 0x28, 0xAE, 0xD2, 0xA6, 0xAB, 0xF7, 0x15, 0x88, 0x09, 0xCF, 0x4F, 0x3C };
@@ -60,6 +60,7 @@ void setup() {
   randomizeArray(); // Randomize the array
   printArray(); // Print the randomized array
   printMenu();           // Display the menu options
+  printBase64();
 }
 
 void loop() {
@@ -88,6 +89,7 @@ void handleMenu(int option) {
       break;
     case 3:
       listSDCardContent();
+      // [BUAT TITO] ISIII INI BUAT NGELIST ISI SD CARDNYA ADA APA AJA
       break;
     case 4:
       resetDevice();
@@ -112,9 +114,9 @@ void encryptData() {
   int bytesRead = Serial.readBytesUntil('\n', plaintext, MAX_STRING_LENGTH - 1);
   plaintext[bytesRead] = '\0'; // Null-terminate the string
   clearSerialBuffer();
-  // Copy plaintext to cleartext
-  strncpy(cleartext, plaintext, sizeof(cleartext) - 1);
-  cleartext[sizeof(cleartext) - 1] = '\0'; // Ensure null-termination
+  // Copy plaintext to temp_for_decryption
+  strncpy(temp_for_decryption, plaintext, sizeof(temp_for_decryption) - 1);
+  temp_for_decryption[sizeof(temp_for_decryption) - 1] = '\0'; // Ensure null-termination
 
   // Print the entered plaintext
   Serial.print("Entered plaintext: ");
@@ -125,6 +127,7 @@ void encryptData() {
   Serial.println("Encrypting plaintext using null-IV with ZeroLength padding");
   String encrypted1 = encrypt_impl((char*)plaintext, enc_iv_A);
   Serial.print("Encrypted(1): "); Serial.println(encrypted1);
+  // [BUAT TITO] encrypted1 isinya ciphertext, ini disave
   print_key_iv();
 }
 
@@ -140,15 +143,16 @@ void decryptData() {
   int bytesRead = Serial.readBytesUntil('\n', ciphertext , MAX_STRING_LENGTH - 1);
   ciphertext [bytesRead] = '\0'; // Null-terminate the string
   clearSerialBuffer();
-  // Copy ciphertext  to cleartext
-  strncpy(cleartext, ciphertext , sizeof(cleartext) - 1);
-  cleartext[sizeof(cleartext) - 1] = '\0'; // Ensure null-termination
+  
+  // Copy ciphertext  to temp_for_decryption
+  strncpy(temp_for_decryption, ciphertext , sizeof(temp_for_decryption) - 1);
+  temp_for_decryption[sizeof(temp_for_decryption) - 1] = '\0'; // Ensure null-termination
 
   // Print the entered ciphertext 
   Serial.print("Entered ciphertext : ");
   Serial.println(ciphertext);
-  String for_decryption = String(cleartext);
-    byte dec_iv_B[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  String for_decryption = String(temp_for_decryption);
+  byte dec_iv_B[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
   Serial.println("Decrypting using null-IV ZeroLength padding");
   String decrypted = decrypt_impl((char*)for_decryption.c_str(), dec_iv_B); // aes_iv fails here, incorrectly decoded...
   Serial.print("Cleartext: ");
@@ -181,7 +185,7 @@ void swap(T& a, T& b) {
 void randomizeArray() {
   // Shuffle the array using the Fisher-Yates algorithm
   for (int i = 0; i < ARRAY_SIZE; ++i) {
-    aes_key[i] = random(256); // Generate a random number between 0 and 255 (0x00 and 0xFF)
+    aes_key[i] = random(256);
   }
 }
 
@@ -199,4 +203,11 @@ void printArray() {
     }
   }
   Serial.println(" };");
+}
+void printBase64() {
+  char encodedData[24]; // Enough space to encode 16 bytes
+  int encodedLen = base64_encode(encodedData, (char*)aes_key, ARRAY_SIZE);
+  Serial.print("Base64 encoded key: ");
+  Serial.println(encodedData);
+//  [BUAT TITO] encodedData isinya kunci AES dalam format base64, ini disave
 }
