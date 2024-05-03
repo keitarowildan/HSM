@@ -1,13 +1,14 @@
-/* Example taking test values from node.js server as input as well... */
-
+#include <Arduino.h>
+#include <stm32f4xx.h>
 #include <AESLib.h>
 
 AESLib aesLib;
-
 const int MAX_STRING_LENGTH = 128;
 char plaintext[MAX_STRING_LENGTH];
+//char ciphertext[MAX_STRING_LENGTH];
 
 int loopcount = 0;
+unsigned int menu = 0;
 
 char cleartext[256] = {0};
 char ciphertext[512];
@@ -48,42 +49,51 @@ String decrypt_impl(char * msg, byte iv[]) {
   return String(decrypted);
 }
 
-// Generate IV (once)
-void aes_init() {
-
-  Serial.flush();
-  
-  delay(1000);
-
-  Serial.println("\n=======\n");
-
-  ///
-  
-  Serial.println("\n1) AES init... paddingMode::ZeroLength");  
-  aesLib.set_paddingmode(paddingMode::ZeroLength);  
-
-  byte enc_iv_A[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  Serial.println("Encrypting plaintext using null-IV with ZeroLength padding");
-  String encrypted1 = encrypt_impl((char*)plaintext, enc_iv_A);
-  Serial.print("Encrypted(1): "); Serial.println(encrypted1);
-  print_key_iv();
-
-  aesLib.set_paddingmode(paddingMode::ZeroLength);  
-
-  byte dec_iv_B[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  Serial.println("Decrypting using null-IV ZeroLength padding");
-  String decrypted = decrypt_impl((char*)encrypted1.c_str(), dec_iv_B); // aes_iv fails here, incorrectly decoded...
-  Serial.print("Cleartext: ");
-  Serial.println(decrypted);
-  Serial.println("\nIn first iteration this should work (using untouched dec_iv_B) ^^^");
-
-  
-}
 
 void setup() {
-  Serial.begin(115200);
-  Serial.setTimeout(10000); // Set a timeout of 10 seconds for serial input
-  // Prompt user to enter plaintext
+  Serial.begin(115200);  // Initialize serial communication at 115200 baud rate
+  printMenu();           // Display the menu options
+}
+
+void loop() {
+  if (Serial.available() > 0) { // Check if data is available to read
+    int option = Serial.parseInt(); // Read the option
+    clearSerialBuffer();            // Clear any leftover characters in the buffer
+    handleMenu(option);             // Handle the selected menu option
+  }
+}
+
+void printMenu() {
+  Serial.println("Select an option:");
+  Serial.println("1. Encrypt");
+  Serial.println("2. Decrypt");
+  Serial.println("3. List SD Card Content");
+  Serial.println("4. Reset");
+}
+
+void handleMenu(int option) {
+  switch (option) {
+    case 1:
+      encryptData();
+      break;
+    case 2:
+      decryptData();
+      break;
+    case 3:
+      listSDCardContent();
+      break;
+    case 4:
+      resetDevice();
+      break;
+    default:
+      Serial.println("Invalid option. Please try again.");
+      printMenu(); // Only reprint menu if the option was invalid
+      return;
+  }
+  printMenu(); // Print the menu again after completing any valid action
+}
+
+void encryptData() {
   Serial.println("Enter the plaintext:");
 
   // Wait for user input from serial monitor
@@ -94,7 +104,7 @@ void setup() {
   // Read input string from serial monitor
   int bytesRead = Serial.readBytesUntil('\n', plaintext, MAX_STRING_LENGTH - 1);
   plaintext[bytesRead] = '\0'; // Null-terminate the string
-  
+  clearSerialBuffer();
   // Copy plaintext to cleartext
   strncpy(cleartext, plaintext, sizeof(cleartext) - 1);
   cleartext[sizeof(cleartext) - 1] = '\0'; // Ensure null-termination
@@ -102,37 +112,55 @@ void setup() {
   // Print the entered plaintext
   Serial.print("Entered plaintext: ");
   Serial.println(plaintext);
-  Serial.print("Copied to cleartext: ");
-  Serial.println(cleartext);
-  aes_init();
+    aesLib.set_paddingmode(paddingMode::ZeroLength);  
+
+  byte enc_iv_A[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  Serial.println("Encrypting plaintext using null-IV with ZeroLength padding");
+  String encrypted1 = encrypt_impl((char*)plaintext, enc_iv_A);
+  Serial.print("Encrypted(1): "); Serial.println(encrypted1);
+  print_key_iv();
 }
 
-void loop() {
+void decryptData() {
+  Serial.println("Enter the ciphertext :");
 
-  loopcount++;
+  // Wait for user input from serial monitor
+  while (Serial.available() == 0) {
+    // Wait until data is available
+  }
 
-  if (loopcount > 5) return; // prevent week-long logs
-  
-  Serial.println("");
-  
-  aesLib.set_paddingmode(paddingMode::CMS);
+  // Read input string from serial monitor
+  int bytesRead = Serial.readBytesUntil('\n', ciphertext , MAX_STRING_LENGTH - 1);
+  ciphertext [bytesRead] = '\0'; // Null-terminate the string
+  clearSerialBuffer();
+  // Copy ciphertext  to cleartext
+  strncpy(cleartext, ciphertext , sizeof(cleartext) - 1);
+  cleartext[sizeof(cleartext) - 1] = '\0'; // Ensure null-termination
 
-  // Encrypt Data
-  byte enc_iv[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; // iv_block gets written to, provide own fresh copy...
-  String encrypted = encrypt_impl(cleartext, enc_iv);
-  sprintf(ciphertext, "%s", encrypted.c_str());
-  Serial.print("Base64 encoded Ciphertext: ");
-  Serial.println(encrypted);
-
-  // Decrypt Data
-  byte dec_iv[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }; // iv_block gets written to, provide own fresh copy...
-  String decrypted = decrypt_impl(ciphertext, dec_iv);
-  Serial.print("Base64-decoded Cleartext: ");
+  // Print the entered ciphertext 
+  Serial.print("Entered ciphertext : ");
+  Serial.println(ciphertext);
+  String for_decryption = String(cleartext);
+    byte dec_iv_B[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+  Serial.println("Decrypting using null-IV ZeroLength padding");
+  String decrypted = decrypt_impl((char*)for_decryption.c_str(), dec_iv_B); // aes_iv fails here, incorrectly decoded...
+  Serial.print("Cleartext: ");
   Serial.println(decrypted);
+  Serial.println("\nIn first iteration this should work (using untouched dec_iv_B) ^^^");
+}
 
-  delay(5000);
+void listSDCardContent() {
+  Serial.println("Listing SD Card content...");
+  // Add your SD card listing code here
+}
 
-  // Reset MCU to restart from beggining
-  while(true);
+void resetDevice() {
+  Serial.println("Resetting device...");
+  NVIC_SystemReset();
+}
 
+void clearSerialBuffer() {
+  while (Serial.available() > 0) {
+    Serial.read();  // Read and discard any leftover characters
+  }
 }
