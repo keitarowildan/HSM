@@ -1,8 +1,11 @@
+//#include <Base64.h>
+
 #include <Arduino.h>
 #include <stm32f4xx.h>
 #include <AESLib.h>
 const int ARRAY_SIZE = 16;
 byte aes_key[ARRAY_SIZE];
+byte aes_decrypt_key[ARRAY_SIZE];
 AESLib aesLib;
 const int MAX_STRING_LENGTH = 128;
 char plaintext[MAX_STRING_LENGTH];
@@ -46,7 +49,7 @@ String encrypt_impl(char * msg, byte iv[]) {
 String decrypt_impl(char * msg, byte iv[]) {
   int msgLen = strlen(msg);
   char decrypted[msgLen] = {0}; // half may be enough
-  aesLib.decrypt64(msg, msgLen, (byte*)decrypted, aes_key, sizeof(aes_key), iv);
+  aesLib.decrypt64(msg, msgLen, (byte*)decrypted, aes_decrypt_key, sizeof(aes_decrypt_key), iv);
   return String(decrypted);
 }
 
@@ -132,6 +135,37 @@ void encryptData() {
 }
 
 void decryptData() {
+  Serial.println("Enter key :");
+  while (Serial.available() == 0) {
+    // Wait until data is available
+  }
+
+  // Read the input from the Serial Monitor
+  String encoded = Serial.readStringUntil('\n');
+  
+  // Remove trailing newline characters
+  encoded.trim();
+
+  // Allocate buffer for decoded data
+  char buffer[16];  // Temporary buffer to hold decoded data
+
+  // Decode Base64 string
+  int decodedLength = base64_decode(buffer, encoded.c_str(), encoded.length());
+
+  // Copy the decoded data to aes_decrypt_key
+  memcpy(aes_decrypt_key, buffer, decodedLength);
+
+  // Optionally print the decoded data for verification
+  Serial.println("Decoded data:");
+  for (int i = 0; i < decodedLength; i++) {
+    Serial.print("0x");
+    if (aes_decrypt_key[i] < 16) Serial.print("0");
+    Serial.print(aes_decrypt_key[i], HEX);
+    if (i < decodedLength - 1) Serial.print(", ");
+  }
+  Serial.println();  // Print newline to end the line
+
+  clearSerialBuffer();
   Serial.println("Enter the ciphertext :");
 
   // Wait for user input from serial monitor
