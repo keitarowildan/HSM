@@ -27,6 +27,26 @@ byte aes_iv[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 String server_b64iv = "AAAAAAAAAAAAAAAAAAAAAAAA=="; // same as aes_iv  but in Base-64 form as received from server
 String server_b64msg = "j0RFVdlKjYrwx17qzHdt40ZS4hxckx0riP4SNy21X3U="; // CBC/Zeropadding; same as aes_iv  but in Base-64 form as received from server
 
+void randomizeIV() {
+    for (int i = 0; i < N_BLOCK; ++i) {
+        aes_iv[i] = random(256);
+    }
+}
+void printIV() {
+    Serial.print("byte aes_iv[] = { ");
+    for (int i = 0; i < N_BLOCK; ++i) {
+        Serial.print("0x");
+        if (aes_iv[i] < 16) {
+            Serial.print("0"); // Print leading zero for single-digit hex numbers
+        }
+        Serial.print(aes_iv[i], HEX);
+        if (i < N_BLOCK - 1) {
+            Serial.print(", ");
+        }
+    }
+    Serial.println(" };");
+}
+
 void print_key_iv() {
   Serial.print("AES IV: ");
   for (unsigned int i = 0; i < sizeof(aes_iv); i++) {
@@ -53,7 +73,6 @@ String decrypt_impl(char * msg, byte iv[]) {
   return String(decrypted);
 }
 
-
 void setup() {
   Serial.begin(115200);  // Initialize serial communication at 115200 baud rate
   delay(300);
@@ -61,7 +80,9 @@ void setup() {
     randomSeed(analogRead(0)); // Seed the random number generator
     Serial.println("cek");
   randomizeArray(); // Randomize the array
+  randomizeIV();
   printArray(); // Print the randomized array
+  printIV();
   printMenu();           // Display the menu options
   printBase64();
 }
