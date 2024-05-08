@@ -9,6 +9,63 @@ byte aes_decrypt_key[ARRAY_SIZE];
 AESLib aesLib;
 const int MAX_STRING_LENGTH = 128;
 char plaintext[MAX_STRING_LENGTH];
+#include <EEPROM.h>
+
+#define EEPROM_SIZE 1600  // 100 keys * 16 bytes per key
+
+void setupEEPROM() {
+  EEPROM.begin();
+}
+
+bool addKeyToEEPROM(byte* key) {
+  byte storedKey[16];
+  bool isEmpty = true;
+
+  for (int address = 0; address < 1600; address += 16) {
+    isEmpty = true;
+    for (int i = 0; i < 16; i++) {
+      storedKey[i] = EEPROM.read(address + i);
+      if (storedKey[i] != 0xFF) isEmpty = false; // Check if location is empty
+    }
+
+    if (memcmp(storedKey, key, 16) == 0) {
+      Serial.println("Key already exists.");
+      return false;
+    }
+
+    if (isEmpty) {
+      for (int i = 0; i < 16; i++) {
+        EEPROM.write(address + i, key[i]);
+      }
+      return true;
+    }
+  }
+  rotateKeys(key);
+  return true;
+}
+
+
+bool isEmpty(byte* key) {
+  for (int i = 0; i < 16; i++) {
+    if (key[i] != 0xFF) return false;
+  }
+  return true;
+}
+void rotateKeys(byte* newKey) {
+  byte tempKey[16];
+  for (int address = 0; address < 1600 - 16; address += 16) {
+    for (int i = 0; i < 16; i++) {
+      tempKey[i] = EEPROM.read(address + 16 + i);
+      EEPROM.write(address + i, tempKey[i]);
+    }
+  }
+  for (int i = 0; i < 16; i++) {
+    EEPROM.write(1600 - 16 + i, newKey[i]);
+  }
+}
+
+
+
 //char ciphertext[MAX_STRING_LENGTH];
 
 int loopcount = 0;
@@ -59,7 +116,8 @@ void setup() {
   delay(300);
   while(!Serial){;}
     randomSeed(analogRead(0)); // Seed the random number generator
-    Serial.println("cek");
+    Serial.println("START CRYPTOGRAPHY");
+      setupEEPROM();
   randomizeArray(); // Randomize the array
   printArray(); // Print the randomized array
   printMenu();           // Display the menu options
@@ -140,6 +198,13 @@ void decryptData() {
     // Wait until data is available
   }
 
+  byte key[16];
+  readKeyFromSerial(key);
+  if (!addKeyToEEPROM(key)) {
+    Serial.println("Key is used. Enter a new key:");
+    return;
+  }
+
   // Read the input from the Serial Monitor
   String encoded = Serial.readStringUntil('\n');
   
@@ -192,6 +257,13 @@ void decryptData() {
   Serial.print("Cleartext: ");
   Serial.println(decrypted);
   Serial.println("\nIn first iteration this should work (using untouched dec_iv_B) ^^^");
+}
+
+void readKeyFromSerial(byte* key) {
+  for (int i = 0; i < 16; i++) {
+    while (Serial.available() == 0); // Wait for data
+    key[i] = Serial.read();
+  }
 }
 
 void listSDCardContent() {
