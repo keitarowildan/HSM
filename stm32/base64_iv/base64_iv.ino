@@ -1,71 +1,21 @@
-//#include <Base64.h>
-
 #include <Arduino.h>
 #include <stm32f4xx.h>
 #include <AESLib.h>
+#include <EEPROM.h>
+const int maxStrings = 50;
+const int stringSize = 24; // Length of each string
+const int totalEEPROMSize = maxStrings * stringSize; // Total EEPROM size used
+
+// Function declarations
+bool isUniqueString(const char* inputString);
+void saveStringToEEPROM(const char* inputString);
+
 const int ARRAY_SIZE = 16;
 byte aes_key[ARRAY_SIZE];
 byte aes_decrypt_key[ARRAY_SIZE];
 AESLib aesLib;
 const int MAX_STRING_LENGTH = 128;
 char plaintext[MAX_STRING_LENGTH];
-#include <EEPROM.h>
-
-#define EEPROM_SIZE 1600  // 100 keys * 16 bytes per key
-
-void setupEEPROM() {
-  EEPROM.begin();
-}
-
-bool addKeyToEEPROM(byte* key) {
-  byte storedKey[16];
-  bool isEmpty = true;
-
-  for (int address = 0; address < 1600; address += 16) {
-    isEmpty = true;
-    for (int i = 0; i < 16; i++) {
-      storedKey[i] = EEPROM.read(address + i);
-      if (storedKey[i] != 0xFF) isEmpty = false; // Check if location is empty
-    }
-
-    if (memcmp(storedKey, key, 16) == 0) {
-      Serial.println("Key already exists.");
-      return false;
-    }
-
-    if (isEmpty) {
-      for (int i = 0; i < 16; i++) {
-        EEPROM.write(address + i, key[i]);
-      }
-      return true;
-    }
-  }
-  rotateKeys(key);
-  return true;
-}
-
-
-bool isEmpty(byte* key) {
-  for (int i = 0; i < 16; i++) {
-    if (key[i] != 0xFF) return false;
-  }
-  return true;
-}
-void rotateKeys(byte* newKey) {
-  byte tempKey[16];
-  for (int address = 0; address < 1600 - 16; address += 16) {
-    for (int i = 0; i < 16; i++) {
-      tempKey[i] = EEPROM.read(address + 16 + i);
-      EEPROM.write(address + i, tempKey[i]);
-    }
-  }
-  for (int i = 0; i < 16; i++) {
-    EEPROM.write(1600 - 16 + i, newKey[i]);
-  }
-}
-
-
-
 //char ciphertext[MAX_STRING_LENGTH];
 
 int loopcount = 0;
@@ -116,8 +66,7 @@ void setup() {
   delay(300);
   while(!Serial){;}
     randomSeed(analogRead(0)); // Seed the random number generator
-    Serial.println("START CRYPTOGRAPHY");
-      setupEEPROM();
+    Serial.println("cek");
   randomizeArray(); // Randomize the array
   printArray(); // Print the randomized array
   printMenu();           // Display the menu options
@@ -197,19 +146,21 @@ void decryptData() {
   while (Serial.available() == 0) {
     // Wait until data is available
   }
-
-  byte key[16];
-  readKeyFromSerial(key);
-  if (!addKeyToEEPROM(key)) {
-    Serial.println("Key is used. Enter a new key:");
-    return;
-  }
+  
 
   // Read the input from the Serial Monitor
   String encoded = Serial.readStringUntil('\n');
   
   // Remove trailing newline characters
   encoded.trim();
+  const char* encodedCStr = encoded.c_str();
+
+  if (!isUniqueString(encodedCStr)) {
+      Serial.println("String already exists. Enter a new string:");
+  } else {
+      saveStringToEEPROM(encodedCStr);
+      Serial.println("Key saved successfully");
+  }
 
   // Allocate buffer for decoded data
   char buffer[16];  // Temporary buffer to hold decoded data
@@ -257,13 +208,6 @@ void decryptData() {
   Serial.print("Cleartext: ");
   Serial.println(decrypted);
   Serial.println("\nIn first iteration this should work (using untouched dec_iv_B) ^^^");
-}
-
-void readKeyFromSerial(byte* key) {
-  for (int i = 0; i < 16; i++) {
-    while (Serial.available() == 0); // Wait for data
-    key[i] = Serial.read();
-  }
 }
 
 void listSDCardContent() {
@@ -316,4 +260,30 @@ void printBase64() {
   Serial.print("Base64 encoded key: ");
   Serial.println(encodedData);
 //  [BUAT TITO] encodedData isinya kunci AES dalam format base64, ini disave
+}
+
+bool isUniqueString(const char* inputString) {
+  char buffer[stringSize + 1];
+
+  for (int i = 0; i < totalEEPROMSize; i += stringSize) {
+    EEPROM.get(i, buffer);
+    buffer[stringSize] = '\0'; // Ensure the string is terminated
+
+    if (strcmp(buffer, inputString) == 0) {
+      return false; // String found in EEPROM
+    }
+  }
+  return true; // Unique string
+}
+
+void saveStringToEEPROM(const char* inputString) {
+  static int currentEEPROMIndex = 0;
+
+  // Write the string to EEPROM at current index
+  for (int i = 0; i < stringSize; i++) {
+    EEPROM.update(currentEEPROMIndex + i, inputString[i]);
+  }
+
+  // Move index to next string position, wrapping around if necessary
+  currentEEPROMIndex = (currentEEPROMIndex + stringSize) % totalEEPROMSize;
 }
