@@ -9,6 +9,18 @@ byte aes_decrypt_key[ARRAY_SIZE];
 AESLib aesLib;
 const int MAX_STRING_LENGTH = 128;
 char plaintext[MAX_STRING_LENGTH];
+#include <SPI.h>
+#include "SdFat.h"
+SdFat SD;
+// Define chip select pin for the SD card
+#define SD_CS_PIN PB12
+
+// Create an SPIClass object if using a custom SPI bus
+static SPIClass mySPI2(PB15, PB14, PB13);  // MISO, MOSI, SCK pins
+
+// Define the SPI configuration for the SdFat library
+#define SD2_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(48), &mySPI2)
+
 //char ciphertext[MAX_STRING_LENGTH];
 
 int loopcount = 0;
@@ -57,14 +69,29 @@ String decrypt_impl(char * msg, byte iv[]) {
 void setup() {
   Serial.begin(115200);  // Initialize serial communication at 115200 baud rate
   delay(300);
-  while(!Serial){;}
-    randomSeed(analogRead(0)); // Seed the random number generator
-    Serial.println("cek");
-  randomizeArray(); // Randomize the array
-  printArray(); // Print the randomized array
-  printMenu();           // Display the menu options
-  printBase64();
+  while(!Serial){;}      // Wait for serial port to connect. Needed for native USB port only
+
+  Serial.print("\nInitializing SD card...");
+
+  // we'll use the initialization code from the utility libraries
+  // since we're just testing if the card is working!
+  if (!SD.begin(SD2_CONFIG)) {
+    Serial.println("initialization failed. Things to check:");
+    Serial.println("* is a card inserted?");
+    Serial.println("* is your wiring correct?");
+    Serial.println("* did you change the chipSelect pin to match your shield or module?");
+    while (1);
+  } else {
+    Serial.println("Wiring is correct and a card is present.");
+  }
+
+  randomSeed(analogRead(0)); // Seed the random number generator
+  randomizeArray();          // Randomize the array
+  printArray();              // Print the randomized array
+  printBase64();             // Print and save Base64 encoded key to SD card
+  printMenu();               // Display the menu options
 }
+
 
 void loop() {
   if (Serial.available() > 0) { // Check if data is available to read
@@ -80,6 +107,7 @@ void printMenu() {
   Serial.println("2. Decrypt");
   Serial.println("3. List SD Card Content");
   Serial.println("4. Reset");
+  Serial.println("5. Remove all keys");
 }
 
 void handleMenu(int option) {
@@ -96,6 +124,9 @@ void handleMenu(int option) {
       break;
     case 4:
       resetDevice();
+      break;
+    case 5:
+      clearFileContents("aes_key.txt");
       break;
     default:
       Serial.println("Invalid option. Please try again.");
@@ -238,10 +269,44 @@ void printArray() {
   }
   Serial.println(" };");
 }
+
 void printBase64() {
   char encodedData[24]; // Enough space to encode 16 bytes
+  char targetBuffer[25]; // Buffer to copy into, 24 chars + null terminator
   int encodedLen = base64_encode(encodedData, (char*)aes_key, ARRAY_SIZE);
+
   Serial.print("Base64 encoded key: ");
   Serial.println(encodedData);
-//  [BUAT TITO] encodedData isinya kunci AES dalam format base64, ini disave
+
+  // Copy encoded data to another buffer before writing to SD
+  memcpy(targetBuffer, encodedData, 24);
+  targetBuffer[24] = '\0'; // Ensure null termination (optional for this context but good practice)
+
+  // Open the file in append mode (or create it if it doesn't exist)
+  File file = SD.open("aes_key.txt", O_RDWR | O_CREAT | O_AT_END);
+  if (!file) {
+    Serial.println("Error opening aes_key.txt");
+    return;
+  }
+
+  // Write the copied data to the file followed by a newline
+  file.println(targetBuffer);
+
+  // Close the file to save the data
+  file.close();
+  Serial.println("Base64 encoded key written to SD card using memcpy.");
+}
+
+void clearFileContents(const char* filename) {
+    // Open the file in write mode (O_WRITE | O_TRUNC)
+    // O_TRUNC will truncate the file to zero length if it exists
+    File file = SD.open(filename, O_WRITE | O_TRUNC);
+    if (!file) {
+        Serial.println("Failed to open file for clearing");
+        return;
+    }
+
+    // After opening in O_WRITE | O_TRUNC mode, the file is already empty.
+    file.close(); // Close the file
+    Serial.println("File contents cleared.");
 }
