@@ -124,6 +124,22 @@ void handleMenu(int option) {
   printMenu(); // Print the menu again after completing any valid action
 }
 
+void writeCiphertextToFile(const char* ciphertext) {
+  // Open the file in append mode (or create it if it doesn't exist)
+  File file = SD.open("ciphertext.txt", O_RDWR | O_CREAT | O_AT_END);
+  if (!file) {
+    Serial.println("Error opening ciphertext.txt");
+    return;
+  }
+
+  // Write the ciphertext to the file followed by a newline
+  file.println(ciphertext);
+
+  // Close the file to save the data
+  file.close();
+  Serial.println("Ciphertext written to SD card.");
+}
+
 void encryptData() {
   Serial.println("Enter the plaintext:");
 
@@ -151,66 +167,78 @@ void encryptData() {
   String encrypted1 = encrypt_impl((char*)plaintext, enc_iv_A);
   Serial.print("Encrypted(1): "); Serial.println(encrypted1);
   print_key_iv();
-}
 
+  // Write the encrypted text to the SD card
+  writeCiphertextToFile(encrypted1.c_str());
+}
 void decryptData() {
-  Serial.println("Enter key :");
+  Serial.println("Enter the key filename:");
   while (Serial.available() == 0) {
     // Wait until data is available
   }
-
-  // Read the input from the Serial Monitor
-  String encoded = Serial.readStringUntil('\n');
+  String keyFilename = Serial.readStringUntil('\n');
+  keyFilename.trim();
+  if (keyFilename.length() == 0) {
+    Serial.println("Invalid filename. Please try again.");
+    return;
+  }
   
-  // Remove trailing newline characters
-  encoded.trim();
+  // Open the key file
+  File keyFile = SD.open(keyFilename.c_str(), FILE_READ);
+  if (!keyFile) {
+    Serial.println("Failed to open key file.");
+    return;
+  }
 
-  // Allocate buffer for decoded data
+  // Read the Base64 encoded key from the file
+  String encoded = keyFile.readStringUntil('\n');
+  keyFile.close();
+  
+  // Decode the key
   char buffer[16];  // Temporary buffer to hold decoded data
-
-  // Decode Base64 string
   int decodedLength = base64_decode(buffer, encoded.c_str(), encoded.length());
-
-  // Copy the decoded data to aes_decrypt_key
   memcpy(aes_decrypt_key, buffer, decodedLength);
-
-  // Optionally print the decoded data for verification
-  Serial.println("Decoded data:");
+  
+  Serial.print("Decoded key: ");
   for (int i = 0; i < decodedLength; i++) {
     Serial.print("0x");
     if (aes_decrypt_key[i] < 16) Serial.print("0");
     Serial.print(aes_decrypt_key[i], HEX);
     if (i < decodedLength - 1) Serial.print(", ");
   }
-  Serial.println();  // Print newline to end the line
+  Serial.println();
 
-  clearSerialBuffer();
-  Serial.println("Enter the ciphertext :");
-
-  // Wait for user input from serial monitor
+  Serial.println("Enter the ciphertext filename:");
   while (Serial.available() == 0) {
     // Wait until data is available
   }
-
-  // Read input string from serial monitor
-  int bytesRead = Serial.readBytesUntil('\n', ciphertext , MAX_STRING_LENGTH - 1);
-  ciphertext [bytesRead] = '\0'; // Null-terminate the string
-  clearSerialBuffer();
+  String cipherFilename = Serial.readStringUntil('\n');
+  cipherFilename.trim();
+  if (cipherFilename.length() == 0) {
+    Serial.println("Invalid filename. Please try again.");
+    return;
+  }
   
-  // Copy ciphertext  to temp_for_decryption
-  strncpy(temp_for_decryption, ciphertext , sizeof(temp_for_decryption) - 1);
-  temp_for_decryption[sizeof(temp_for_decryption) - 1] = '\0'; // Ensure null-termination
+  // Open the ciphertext file
+  File cipherFile = SD.open(cipherFilename.c_str(), FILE_READ);
+  if (!cipherFile) {
+    Serial.println("Failed to open ciphertext file.");
+    return;
+  }
 
-  // Print the entered ciphertext 
-  Serial.print("Entered ciphertext : ");
+  // Read the ciphertext from the file
+  String ciphertext = cipherFile.readStringUntil('\n');
+  cipherFile.close();
+  
+  Serial.print("Ciphertext: ");
   Serial.println(ciphertext);
-  String for_decryption = String(temp_for_decryption);
+  
   byte dec_iv_B[N_BLOCK] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-  Serial.println("Decrypting using null-IV ZeroLength padding");
-  String decrypted = decrypt_impl((char*)for_decryption.c_str(), dec_iv_B); // aes_iv fails here, incorrectly decoded...
+  String decrypted = decrypt_impl((char*)ciphertext.c_str(), dec_iv_B);
   Serial.print("Cleartext: ");
   Serial.println(decrypted);
 }
+
 
 void listSDCardContent() {
   Serial.println("Listing SD Card content...");
