@@ -51,3 +51,7 @@ eagle.epf
 
 # ignore zip files
 *.zip
+
+# ignore board_timer_delay and timer_delay directories
+hardware/board_timer_delay/
+hardware/timer_delay/
